@@ -3,8 +3,10 @@ const { DataTypes } = require('sequelize');
 
 
 const User = require('./user');
+const Friend = require('./friend');
 
 
 module.exports = {
-  User
+  User,
+  Friend
 };

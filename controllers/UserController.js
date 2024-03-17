@@ -5,19 +5,23 @@ const ApiError = require("../error/ApiError");
 const {generateAccessToken, generateRefreshToken} = require("../func/auth");
 const jwt = require("jsonwebtoken");
 class UserController {
+  refreshTokens = [];
   constructor() {
     this.refreshTokens = [];
+    this.login = this.login.bind(this);
   }
   async register(req, res, next) {
 
     try {
-      const hashedPassword = await bcrypt.hash(req.body.password, 16);
+
       const user = await User.create({
         email: req.body.email,
-        password: hashedPassword,
+        password: req.body.password,
         firstName: req.body.firstName,
         lastName: req.body.lastName
       });
+      console.log(user)
+
       res.json({ auth: true, message: 'Пользователь успешно зарегистрирован.' });
     } catch (error) {
       return next(ApiError.internal("Ошибка регистрации пользователя"))
@@ -28,16 +32,24 @@ class UserController {
   async login(req, res, next) {
     try {
       const user = await User.findOne({ where: { email: req.body.email } });
-      if (!user) return next(ApiError.badRequest('Неверный email или пароль'));
+      if (!user) {
+        return next(ApiError.badRequest('Неверный email или пароль'));
+      }
 
       const validPassword = await bcrypt.compare(req.body.password, user.password);
-      if (!validPassword) return next(ApiError.badRequest('Неверный email или пароль'));
+      if (!validPassword) {
+        return next(ApiError.badRequest('Неверный email или пароль'));
+      }
 
       const accessToken = generateAccessToken(user.id);
       const refreshToken = generateRefreshToken(user.id);
       this.refreshTokens.push(refreshToken);
 
-      res.json({ auth: true, accessToken: accessToken, refreshToken: refreshToken });
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      res.json({firstName: user.firstName, lastName: user.lastName, email: user.email, accessToken: accessToken,
+      refreshToken: refreshToken})
     } catch (error) {
       return next(ApiError.badRequest('Неверный email или пароль'));
     }
