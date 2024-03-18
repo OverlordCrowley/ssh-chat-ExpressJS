@@ -8,19 +8,18 @@ class FriendController {
             const token = req.headers.authorization.split(' ')[1];
             const { id } = jwt.verify(token, process.env.SECRET);
 
-            // const { email } = req.body.email;
-            console.log(req.body)
-            // const friend = await User.findOne({ where: { email } });
-            // if (!friend) {
-            //     return next(ApiError.badRequest('Пользователь с таким email не найден'));
-            // }
-            //
-            // const alreadyFriend = await Friend.findOne({ where: { userId: id, friendId: friend.id } });
-            // if (alreadyFriend) {
-            //     return next(ApiError.badRequest('Пользователь уже является вашим другом'));
-            // }
-            //
-            // await Friend.create({ userId: id, friendId: friend.id });
+            const { email } = req.body;
+            const friend = await User.findOne({ where: { email } });
+            if (!friend) {
+                return next(ApiError.badRequest('Пользователь с таким email не найден'));
+            }
+
+            const alreadyFriend = await Friend.findOne({ where: { userId: id, friendId: friend.id } });
+            if (alreadyFriend) {
+                return next(ApiError.badRequest('Пользователь уже является вашим другом'));
+            }
+
+            await Friend.create({ userId: id, friendId: friend.id });
 
             res.json({ success: true, message: 'Пользователь успешно добавлен в друзья' });
         } catch (error) {
