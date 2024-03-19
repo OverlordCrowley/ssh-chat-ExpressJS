@@ -18,6 +18,8 @@ const numCPUs = cpus().length;
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
+  pingTimeout: 30000,
+  pingInterval: 5000,
   cors: {
     origin: "http://localhost:4200",
     methods: ["GET", "POST"]
@@ -37,19 +39,20 @@ app.use('/api', router);
 
 
 io.on('connection', (socket) => {
-  console.log(socket.id);
-  socketConnected.add(socket.id)
+  console.log('User connected');
 
+  socket.on('joinRoom', (room) => {
+    socket.join(room);
+    console.log(`User joined room ${room}`);
+  });
 
-
-  socket.on('message', (message) => {
-    console.log('Message received:', message);
-    io.emit('message', message);
+  socket.on('encryptedMessage', (data) => {
+    const { message, recipientEmail } = data;
+    socket.to(recipientEmail).emit('encryptedMessage', message);
   });
 
   socket.on('disconnect', () => {
-    console.log('Socket disconnected ', socket.id);
-    socketConnected.delete(socket.id)
+    console.log('User disconnected');
   });
 });
 

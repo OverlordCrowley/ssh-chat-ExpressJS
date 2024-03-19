@@ -1,6 +1,7 @@
-const { User, Friend } = require('../models'); // Подключаем модели пользователей и друзей
+const { User, Friend, Block } = require('../models'); // Подключаем модели пользователей и друзей
 const jwt = require('jsonwebtoken');
 const ApiError = require('../error/ApiError');
+const {logger} = require("sequelize/lib/utils/logger");
 
 class FriendController {
     async addFriend(req, res, next) {
@@ -12,6 +13,11 @@ class FriendController {
             const friend = await User.findOne({ where: { email } });
             if (!friend) {
                 return next(ApiError.badRequest('Пользователь с таким email не найден'));
+            }
+
+            const isBlocked = await Block.findOne({ where: { userId: friend.id, blockedUserId: id } });
+            if (isBlocked) {
+                return next(ApiError.badRequest('Вы не можете добавить заблокированного пользователя в друзья'));
             }
 
             const alreadyFriend = await Friend.findOne({ where: { userId: id, friendId: friend.id } });
@@ -57,7 +63,15 @@ class FriendController {
                 return next(ApiError.badRequest('Пользователь с таким email не найден'));
             }
 
-            await User.update({ blockedUserId: userToBlock.id }, { where: { id } });
+            // console.log(userToBlock.id)
+            await Friend.destroy({ where: { userId: id, friendId: userToBlock.id } });
+
+            const isAlreadyBlocked = await Block.findOne({ where: { userId: id, blockedUserId: userToBlock.id } });
+            if (isAlreadyBlocked) {
+                return next(ApiError.badRequest('Пользователь уже заблокирован'));
+            }
+
+            await Block.create({ userId: id, blockedUserId: userToBlock.id });
 
             res.json({ success: true, message: 'Пользователь успешно заблокирован' });
         } catch (error) {
@@ -70,12 +84,16 @@ class FriendController {
             const token = req.headers.authorization.split(' ')[1];
             const { id } = jwt.verify(token, process.env.SECRET);
 
-            const friends = await Friend.findAll({ where: { userId: id } });
-            const friendIds = friends.map(friend => friend.friendId);
+            const friendsAddedToUser = await Friend.findAll({ where: { friendId: id } });
+            const friendIdsAddedToUser = friendsAddedToUser.map(friend => friend.userId);
 
-            const friendsInfo = await User.findAll({ where: { id: friendIds } });
+            const friendsOfUser = await Friend.findAll({ where: { userId: id } });
+            const friendIdsOfUser = friendsOfUser.map(friend => friend.friendId);
 
-            res.json({ success: true, friends: friendsInfo });
+            const allFriendIds = [...friendIdsAddedToUser, ...friendIdsOfUser];
+
+            const friendsInfo = await User.findAll({ where: { id: allFriendIds } });
+            res.json(friendsInfo);
         } catch (error) {
             next(ApiError.internal('Ошибка при получении списка друзей'));
         }
