@@ -8,6 +8,7 @@ const router = require('./routes/index');
 const path = require('path');
 const cluster = require("cluster");
 const os = require("os");
+const {logger} = require("sequelize/lib/utils/logger");
 require('dotenv').config()
 
 const PORT = process.env.PORT || 8080;
@@ -17,18 +18,15 @@ const numCPUs = cpus.length;
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
-  pingTimeout: 30000,
+  pingTimeout: 66660000,
   pingInterval: 5000,
   cors: {
     origin: "http://localhost:4200",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST", "UPDATE"]
   }
 });
-let socketConnected = new Set();
 
-app.use(cors({
-  origin: 'http://localhost:4200',
-}));
+app.use(cors());
 app.use(express.json());
 app.use('/static', express.static(path.join(__dirname, 'static')));
 app.use(fileUpload());
@@ -45,8 +43,9 @@ if (cluster.isPrimary) {
     console.log(`worker ${worker.process.pid} died`);
   });
 } else {
+
+
   io.on('connection', (socket) => {
-    console.log('User connected');
 
     socket.on('joinRoom', (room) => {
       socket.join(room);
@@ -54,14 +53,28 @@ if (cluster.isPrimary) {
     });
 
     socket.on('encryptedMessage', (data) => {
-      const { message, recipientEmail } = data;
-      socket.to(recipientEmail).emit('encryptedMessage', message);
+      const { message, recipientEmail, userEmail, timestamp, key } = data;
+      console.log('Encrypted message received:', message);
+
+      let encryptedData = {
+        message: message,
+        key: key,
+        userEmail: userEmail,
+        timestamp: timestamp
+      };
+
+      if (recipientEmail !== userEmail) {
+        io.sockets.in(userEmail).emit('ReceivedEncryptedMessage', encryptedData);
+      }
     });
 
     socket.on('disconnect', () => {
       console.log('User disconnected');
     });
   });
+
+
+
 
   const start = async () => {
     try {
