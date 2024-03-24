@@ -19,7 +19,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
   pingTimeout: 66660000,
-  pingInterval: 5000,
+  pingInterval: 50000,
   cors: {
     origin: "http://localhost:4200",
     methods: ["GET", "POST", "UPDATE"]
@@ -55,16 +55,17 @@ if (cluster.isPrimary) {
     socket.on('encryptedMessage', (data) => {
       const { message, recipientEmail, userEmail, timestamp, key } = data;
       console.log('Encrypted message received:', message);
-
+      console.log("key: ", key)
       let encryptedData = {
         message: message,
         key: key,
         userEmail: userEmail,
         timestamp: timestamp
       };
-
+      console.log(recipientEmail)
       if (recipientEmail !== userEmail) {
         io.sockets.in(userEmail).emit('ReceivedEncryptedMessage', encryptedData);
+        console.log('send to user')
       }
     });
 
